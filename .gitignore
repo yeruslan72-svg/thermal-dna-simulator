@@ -1,0 +1,50 @@
+```plaintext
+# Streamlit
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data files
+*.csv
+*.json
+*.pkl
+*.pickle
+
+# Build and Distribution
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/cache
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+temp/
+tmp/
+```
