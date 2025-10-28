@@ -132,3 +132,4 @@ thermal_dna_app/
     └── dashboard-preview.png
 👥 Authors
 Yeruslan Technologies - Industrial Monitoring Solutions
+
