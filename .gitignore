@@ -1,13 +1,31 @@
-```plaintext
-# Streamlit
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual Environment
-venv/
+*.so
+.Python
 env/
-.venv/
+venv/
+.env
+.venv
+
+# Streamlit
+.streamlit/
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Models
+models/
+*.pkl
+*.joblib
 
 # IDE
 .vscode/
@@ -18,33 +36,3 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Data files
-*.csv
-*.json
-*.pkl
-*.pickle
-
-# Build and Distribution
-build/
-dist/
-*.egg-info/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Streamlit cache
-.streamlit/cache
-
-# Environment variables
-.env
-.env.local
-
-# Temporary files
-temp/
-tmp/
-```
