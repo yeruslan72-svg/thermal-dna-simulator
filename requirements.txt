@@ -1,18 +1,9 @@
-# Core dependencies
-streamlit==1.28.0
+streamlit==1.25.0
 numpy==1.23.5
 pandas==1.5.3
 scikit-learn==1.2.2
 plotly==5.14.1
-
-# Configuration
 python-dotenv==1.0.0
-
-# Data processing
 scipy==1.10.0
-
-# Model persistence
 joblib==1.2.0
-
-# PDF Generation
-reportlab==4.0.4
+reportlab==4.0.0
