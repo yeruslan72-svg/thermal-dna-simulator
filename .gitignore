@@ -6,13 +6,22 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+pythonenv*
+
+# Environment variables
 .env
-.venv
+.env.local
+.env.*.local
+!.env.example
 
 # Streamlit
-.streamlit/
+.streamlit/secrets.toml
 
-# Data
+# Data files
 data/
 *.db
 *.sqlite
@@ -21,18 +30,62 @@ data/
 # Logs
 logs/
 *.log
+*.log.*
 
 # Models
 models/
 *.pkl
 *.joblib
+*.h5
+*.keras
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.DS_Store
+.project
+.classpath
+.settings/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Test outputs
+.coverage
+htmlcov/
+.pytest_cache/
+*.cover
+.hypothesis/
+.tox/
+
+# Build
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Backups
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+*.pid
+*.seed
+*.pid.lock
