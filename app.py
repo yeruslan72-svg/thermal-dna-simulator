@@ -1,4 +1,4 @@
-# app.py - AVCS DNA Industrial Monitor v10.0 (HUMAN-CENTERED)
+# app.py - AVCS DNA Industrial Monitor v10.1 (No PDF Dependencies)
 """System that ASSISTS the operator but NEVER makes decisions"""
 
 import streamlit as st
@@ -9,11 +9,14 @@ from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 import plotly.graph_objects as go
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
+import base64
+
+# PDF generation is commented out until reportlab is installed
+# from reportlab.lib import colors
+# from reportlab.lib.pagesizes import landscape, A4
+# from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+# from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 sys.path.append(str(Path(__file__).parent))
 from modules.config import settings, SystemStatus, industrial_config
@@ -30,13 +33,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Industrial CSS
+# Industrial CSS (same as before)
 st.markdown("""
 <style>
-    /* Main container */
     .main > div { padding: 0rem; max-width: 100%; }
     
-    /* Status bar */
     .status-bar {
         background-color: #1a1a1a;
         color: #00ff00;
@@ -46,7 +47,6 @@ st.markdown("""
         border-bottom: 2px solid #333;
     }
     
-    /* Main status display */
     .main-status {
         font-size: 48px;
         font-weight: bold;
@@ -61,7 +61,6 @@ st.markdown("""
     .status-normal { background-color: #00C851; color: white; }
     .status-standby { background-color: #33b5e5; color: white; }
     
-    /* Sensor panels */
     .sensor-panel {
         background-color: #1e1e1e;
         border: 1px solid #333;
@@ -85,7 +84,6 @@ st.markdown("""
     .sensor-critical .sensor-value { color: #ff4444; animation: blink 1s infinite; }
     .sensor-warning .sensor-value { color: #ffaa00; }
     
-    /* Big numbers for key metrics */
     .big-number {
         font-size: 72px;
         font-weight: bold;
@@ -94,7 +92,6 @@ st.markdown("""
         line-height: 1;
     }
     
-    /* Recommendation panel - system ONLY advises */
     .recommendation-panel {
         background-color: #2a2a2a;
         border-left: 5px solid #33b5e5;
@@ -125,7 +122,6 @@ st.markdown("""
         margin: 10px 0;
     }
     
-    /* Alarm panel */
     .alarm-panel {
         background-color: #2a2a2a;
         padding: 10px;
@@ -138,17 +134,14 @@ st.markdown("""
     .alarm-warning { border-left-color: #ffaa00; background-color: #443300; }
     .alarm-info { border-left-color: #33b5e5; background-color: #003344; }
     
-    /* Blink animation */
     @keyframes blink {
         0% { opacity: 1; }
         50% { opacity: 0.5; }
         100% { opacity: 1; }
     }
     
-    /* Hide Streamlit garbage */
     .stDeployButton, footer, header { display: none !important; }
     
-    /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
         background-color: #1a1a1a;
@@ -187,16 +180,13 @@ class HumanCenteredControlSystem:
             st.session_state.start_time = None
             st.session_state.current_risk = 0
             st.session_state.alarm_history = []
-            st.session_state.operator_actions = []  # Operator action log
-            st.session_state.operator_notes = ""    # Operator notes
+            st.session_state.operator_actions = []
+            st.session_state.operator_notes = ""
     
     def run(self):
         """Main control screen"""
-        
-        # Status bar (always visible)
         self.render_status_bar()
         
-        # Main tabs
         tab1, tab2, tab3, tab4 = st.tabs([
             "🎯 MONITOR", 
             "📋 ALARMS", 
@@ -219,13 +209,11 @@ class HumanCenteredControlSystem:
         with tab4:
             self.render_operator_notes()
         
-        # Auto-refresh for live data
         if st.session_state.system_running:
             time.sleep(0.5)
             st.rerun()
     
     def render_status_bar(self):
-        """Industrial status bar"""
         cols = st.columns([2, 1, 1, 1, 2])
         
         with cols[0]:
@@ -254,7 +242,6 @@ class HumanCenteredControlSystem:
                        unsafe_allow_html=True)
     
     def render_ready_screen(self):
-        """System ready screen"""
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
@@ -270,7 +257,6 @@ class HumanCenteredControlSystem:
                 self.start_system()
     
     def start_system(self):
-        """Start monitoring system"""
         st.session_state.system_running = True
         st.session_state.system_status = SystemStatus.NORMAL
         st.session_state.start_time = datetime.now()
@@ -280,28 +266,24 @@ class HumanCenteredControlSystem:
         st.rerun()
     
     def stop_system(self):
-        """Emergency stop"""
         st.session_state.system_running = False
         st.session_state.system_status = SystemStatus.STANDBY
         self.log_operator_action("EMERGENCY STOP")
         st.rerun()
     
     def render_monitoring(self):
-        """Main monitoring screen"""
-        
         # Generate live data
         self.generate_live_data()
         
         if len(self.data_manager.vibration_data) == 0:
             return
         
-        # Get latest data
         latest_vib = self.data_manager.vibration_data.iloc[-1].to_dict()
         latest_temp = self.data_manager.temperature_data.iloc[-1].to_dict()
         latest_noise = self.data_manager.noise_data.iloc[-1].iloc[0]
         risk = st.session_state.current_risk
         
-        # === MAIN STATUS ===
+        # Main status
         status = st.session_state.system_status.value
         status_class = "status-critical" if risk > 80 else "status-warning" if risk > 50 else "status-normal"
         
@@ -311,7 +293,7 @@ class HumanCenteredControlSystem:
         </div>
         """, unsafe_allow_html=True)
         
-        # === KEY METRICS ===
+        # Key metrics
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -347,7 +329,7 @@ class HumanCenteredControlSystem:
             if st.button("🛑 STOP", type="secondary", use_container_width=True):
                 self.stop_system()
         
-        # === VIBRATION SENSORS ===
+        # Vibration sensors
         st.markdown("### VIBRATION [mm/s]")
         vcols = st.columns(4)
         vib_sensors = [
@@ -369,7 +351,7 @@ class HumanCenteredControlSystem:
                 </div>
                 """, unsafe_allow_html=True)
         
-        # === TEMPERATURE SENSORS ===
+        # Temperature sensors
         st.markdown("### TEMPERATURE [°C]")
         tcols = st.columns(4)
         temp_sensors = [
@@ -391,7 +373,7 @@ class HumanCenteredControlSystem:
                 </div>
                 """, unsafe_allow_html=True)
         
-        # === MR DAMPERS ===
+        # MR Dampers
         st.markdown("### MR DAMPERS [N]")
         dcols = st.columns(4)
         dampers = [
@@ -413,7 +395,7 @@ class HumanCenteredControlSystem:
                 </div>
                 """, unsafe_allow_html=True)
         
-        # === RECOMMENDATIONS (SYSTEM ONLY ADVISES) ===
+        # Recommendations
         recommendations = self.generate_recommendations(risk, latest_vib, latest_temp, latest_noise)
         if recommendations:
             st.markdown("### 💡 OPERATOR RECOMMENDATIONS")
@@ -430,12 +412,11 @@ class HumanCenteredControlSystem:
                     """, unsafe_allow_html=True)
                 
                 with col2:
-                    # Operator decides whether to follow recommendation
                     if st.button(f"✅ ACK", key=f"rec_{rec['id']}", use_container_width=True):
                         self.log_operator_action(f"Followed: {rec['message']}")
                         st.success("Action logged")
         
-        # === ACTIVE ALARMS ===
+        # Active alarms
         active = [a for a in st.session_state.alarm_history if not a.get('acknowledged')]
         if active:
             st.markdown("### 🚨 ACTIVE ALARMS")
@@ -459,10 +440,8 @@ class HumanCenteredControlSystem:
                         st.session_state[f"show_note_{alarm['id']}"] = True
     
     def render_alarms(self):
-        """Alarm history with filtering"""
         st.markdown("## 📋 ALARM HISTORY")
         
-        # Filters
         col1, col2, col3 = st.columns(3)
         with col1:
             period = st.selectbox("Period", ["Last 24h", "Last 7d", "Last 30d", "All"], index=0)
@@ -473,7 +452,6 @@ class HumanCenteredControlSystem:
                 st.session_state.alarm_history = []
                 st.rerun()
         
-        # Apply filters
         filtered = st.session_state.alarm_history.copy()
         
         if period != "All":
@@ -488,7 +466,6 @@ class HumanCenteredControlSystem:
         if level:
             filtered = [a for a in filtered if a['level'] in level]
         
-        # Display
         if filtered:
             data = []
             for alarm in reversed(filtered[-100:]):
@@ -505,7 +482,6 @@ class HumanCenteredControlSystem:
             df = pd.DataFrame(data, columns=["Time", "Level", "Message", "Status", "Note"])
             st.dataframe(df, use_container_width=True)
             
-            # Export
             if st.button("📥 EXPORT TO CSV", use_container_width=True):
                 csv = df.to_csv(index=False)
                 st.download_button("Download CSV", csv, "alarms.csv", "text/csv")
@@ -513,37 +489,32 @@ class HumanCenteredControlSystem:
             st.info("No alarms in selected period")
     
     def render_reports(self):
-        """PDF Report generation"""
         st.markdown("## 📊 GENERATE REPORT")
+        st.info("PDF generation requires reportlab library. Install with: pip install reportlab")
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            date = st.date_input("Date", datetime.now())
-            time_val = st.time_input("Time", datetime.now().time())
-            report_type = st.selectbox("Report Type", [
-                "Shift Report",
-                "Incident Report",
-                "Performance Report",
-                "Maintenance Report"
-            ])
-        
-        with col2:
-            include_alarms = st.checkbox("Include Alarms", True)
-            include_actions = st.checkbox("Include Operator Actions", True)
-            include_notes = st.checkbox("Include Notes", True)
-        
-        if st.button("📄 GENERATE PDF REPORT", type="primary", use_container_width=True):
-            self.generate_pdf_report(date, time_val, report_type, include_alarms, include_actions, include_notes)
+        # Simple CSV export instead
+        if st.button("📥 EXPORT DATA TO CSV", use_container_width=True):
+            if len(self.data_manager.vibration_data) > 0:
+                # Combine all data
+                df = pd.concat([
+                    self.data_manager.vibration_data.add_prefix('VIB_'),
+                    self.data_manager.temperature_data.add_prefix('TEMP_'),
+                    self.data_manager.noise_data.rename(columns={self.config.ACOUSTIC_SENSOR[0]: 'NOISE'})
+                ], axis=1)
+                df['RISK'] = self.data_manager.risk_history
+                
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    "Download CSV",
+                    csv,
+                    f"data_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    "text/csv"
+                )
     
     def render_operator_notes(self):
-        """Operator notes section"""
         st.markdown("## 📝 OPERATOR NOTES")
-        
-        # Current shift info
         st.markdown(f"**Shift:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         
-        # Notes area
         notes = st.text_area("", value=st.session_state.operator_notes, height=200)
         
         col1, col2 = st.columns(2)
@@ -562,14 +533,12 @@ class HumanCenteredControlSystem:
                     "text/plain"
                 )
         
-        # Operator action log
         if st.session_state.operator_actions:
             st.markdown("### 📋 Action Log")
             for action in reversed(st.session_state.operator_actions[-20:]):
                 st.caption(f"{action['time'].strftime('%H:%M:%S')} - {action['message']}")
     
     def generate_recommendations(self, risk, vibration, temperature, noise):
-        """SYSTEM ONLY ADVISES - NEVER DECIDES"""
         recommendations = []
         
         if risk > 80:
@@ -587,7 +556,6 @@ class HumanCenteredControlSystem:
                 'message': 'Schedule maintenance review'
             })
         
-        # Check vibration
         for sensor, value in vibration.items():
             if value > 4:
                 name = self.config.VIBRATION_SENSORS[sensor][0]
@@ -598,7 +566,6 @@ class HumanCenteredControlSystem:
                     'message': f'{name}: {value:.1f} mm/s. Consider bearing inspection'
                 })
         
-        # Check temperature
         for sensor, value in temperature.items():
             if value > 85:
                 name = self.config.THERMAL_SENSORS[sensor][0]
@@ -617,17 +584,15 @@ class HumanCenteredControlSystem:
                     'message': f'{name}: {value:.0f}°C. Monitor closely'
                 })
         
-        return recommendations[:5]  # Max 5 recommendations
+        return recommendations[:5]
     
     def generate_live_data(self):
-        """Generate simulation data"""
         vibration, temperature, noise = self.simulator.generate_data(st.session_state.cycle)
         
         if vibration:
             risk = self.calculate_risk(vibration, temperature, noise)
             st.session_state.current_risk = risk
             
-            # Check for alarms
             self.check_alarms(vibration, temperature, noise, risk)
             
             force = self.get_damper_force(risk)
@@ -642,34 +607,26 @@ class HumanCenteredControlSystem:
                 st.session_state.cycle = 0
     
     def check_alarms(self, vibration, temperature, noise, risk):
-        """Check for alarm conditions"""
-        now = datetime.now()
-        
-        # Critical vibration
         for sensor, value in vibration.items():
             if value > 4:
                 self.add_alarm('critical', f"High vibration: {self.config.VIBRATION_SENSORS[sensor][0]} = {value:.1f} mm/s")
             elif value > 2:
                 self.add_alarm('warning', f"Elevated vibration: {self.config.VIBRATION_SENSORS[sensor][0]} = {value:.1f} mm/s")
         
-        # Critical temperature
         for sensor, value in temperature.items():
             if value > 85:
                 self.add_alarm('critical', f"High temperature: {self.config.THERMAL_SENSORS[sensor][0]} = {value:.0f}°C")
             elif value > 70:
                 self.add_alarm('warning', f"Elevated temperature: {self.config.THERMAL_SENSORS[sensor][0]} = {value:.0f}°C")
         
-        # Critical risk
         if risk > 80:
             self.add_alarm('critical', f"Critical risk level: {risk}%")
         elif risk > 50:
             self.add_alarm('warning', f"Elevated risk level: {risk}%")
     
     def add_alarm(self, level, message):
-        """Add alarm to history"""
         alarm_id = f"{level}_{datetime.now().timestamp()}"
         
-        # Check for duplicates in last 10 minutes
         recent = [a for a in st.session_state.alarm_history 
                  if a['message'] == message 
                  and (datetime.now() - a['time']).total_seconds() < 600]
@@ -683,12 +640,10 @@ class HumanCenteredControlSystem:
                 'acknowledged': False
             })
             
-            # Keep last 1000 alarms
             if len(st.session_state.alarm_history) > 1000:
                 st.session_state.alarm_history = st.session_state.alarm_history[-1000:]
     
     def acknowledge_alarm(self, alarm_id):
-        """Acknowledge alarm"""
         for alarm in st.session_state.alarm_history:
             if alarm['id'] == alarm_id:
                 alarm['acknowledged'] = True
@@ -697,17 +652,14 @@ class HumanCenteredControlSystem:
                 break
     
     def log_operator_action(self, message):
-        """Log operator actions"""
         st.session_state.operator_actions.append({
             'time': datetime.now(),
             'message': message
         })
-        # Keep last 100 actions
         if len(st.session_state.operator_actions) > 100:
             st.session_state.operator_actions = st.session_state.operator_actions[-100:]
     
     def calculate_risk(self, vibration, temperature, noise):
-        """Calculate risk index"""
         vib_avg = sum(vibration.values()) / len(vibration)
         temp_avg = sum(temperature.values()) / len(temperature)
         
@@ -718,7 +670,6 @@ class HumanCenteredControlSystem:
         return int(min(100, vib_risk + temp_risk + noise_risk))
     
     def get_damper_force(self, risk):
-        """Get damper force based on risk"""
         if risk > 80:
             return self.config.DAMPER_FORCES['critical']
         elif risk > 50:
@@ -726,115 +677,7 @@ class HumanCenteredControlSystem:
         elif risk > 20:
             return self.config.DAMPER_FORCES['normal']
         return self.config.DAMPER_FORCES['standby']
-    
-    def generate_pdf_report(self, date, time_val, report_type, include_alarms, include_actions, include_notes):
-        """Generate PDF report"""
-        try:
-            buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
-            styles = getSampleStyleSheet()
-            story = []
-            
-            # Title
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=24,
-                spaceAfter=30,
-                textColor=colors.HexColor('#1e3c72')
-            )
-            story.append(Paragraph(f"AVCS DNA - {report_type}", title_style))
-            story.append(Paragraph(f"Date: {date} {time_val}", styles['Normal']))
-            story.append(Spacer(1, 20))
-            
-            # System Status
-            story.append(Paragraph("System Status", styles['Heading2']))
-            status_data = [
-                ["Parameter", "Value"],
-                ["Status", st.session_state.system_status.value],
-                ["Risk Index", f"{st.session_state.current_risk}%"],
-                ["Uptime", str(datetime.now() - st.session_state.start_time).split('.')[0] if st.session_state.start_time else "0"],
-                ["Cycles", str(st.session_state.cycle)]
-            ]
-            
-            status_table = Table(status_data)
-            status_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1e3c72')),
-                ('TEXTCOLOR', (0, 0), (1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            story.append(status_table)
-            story.append(Spacer(1, 20))
-            
-            # Alarms
-            if include_alarms and st.session_state.alarm_history:
-                story.append(Paragraph("Alarm History", styles['Heading2']))
-                alarm_data = [["Time", "Level", "Message", "Status"]]
-                for alarm in st.session_state.alarm_history[-20:]:
-                    status = "Acknowledged" if alarm.get('acknowledged') else "Active"
-                    alarm_data.append([
-                        alarm['time'].strftime('%H:%M:%S'),
-                        alarm['level'].upper(),
-                        alarm['message'],
-                        status
-                    ])
-                
-                alarm_table = Table(alarm_data)
-                alarm_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ff4444')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
-                story.append(alarm_table)
-                story.append(Spacer(1, 20))
-            
-            # Operator Actions
-            if include_actions and st.session_state.operator_actions:
-                story.append(Paragraph("Operator Actions", styles['Heading2']))
-                action_data = [["Time", "Action"]]
-                for action in st.session_state.operator_actions[-20:]:
-                    action_data.append([
-                        action['time'].strftime('%H:%M:%S'),
-                        action['message']
-                    ])
-                
-                action_table = Table(action_data)
-                action_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#33b5e5')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
-                story.append(action_table)
-                story.append(Spacer(1, 20))
-            
-            # Operator Notes
-            if include_notes and st.session_state.operator_notes:
-                story.append(Paragraph("Operator Notes", styles['Heading2']))
-                story.append(Paragraph(st.session_state.operator_notes, styles['Normal']))
-            
-            # Build PDF
-            doc.build(story)
-            buffer.seek(0)
-            
-            st.download_button(
-                label="📥 DOWNLOAD PDF",
-                data=buffer,
-                file_name=f"AVCS_Report_{date}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            
-            st.success("✅ Report generated")
-            self.log_operator_action(f"Generated {report_type} report")
-            
-        except Exception as e:
-            st.error(f"Error generating PDF: {str(e)}")
-            logger.error(f"PDF generation error: {e}")
 
-# Run application
 if __name__ == "__main__":
     system = HumanCenteredControlSystem()
     system.run()
