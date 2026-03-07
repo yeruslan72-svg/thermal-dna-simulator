@@ -1,4 +1,4 @@
-# app.py - AVCS DNA Industrial Monitor v6.0
+# app.py - AVCS DNA Industrial Monitor v6.1 (Fixed)
 """Main application entry point for AVCS DNA Industrial Monitoring System"""
 
 import streamlit as st
@@ -15,7 +15,7 @@ from pathlib import Path
 # Add modules to path
 sys.path.append(str(Path(__file__).parent))
 
-# Local imports - используем новую структуру
+# Local imports
 from modules.config import settings, SystemStatus, AlertLevel, industrial_config
 from modules.data_manager import data_manager
 from modules.ai_model import ai_model
@@ -43,7 +43,7 @@ class ThermalDNAApp:
         self.ai_model = ai_model
         self.simulator = sensor_simulator
         self.ui = ui_components
-        self.alert_system = alert_system
+        self.alert_system = alert_system  # Это объект AlertSystem
         self.init_session_state()
         
         logger.info(f"{settings.APP_NAME} v{settings.APP_VERSION} initialized")
@@ -57,10 +57,9 @@ class ThermalDNAApp:
             st.session_state.error_count = 0
             st.session_state.start_time = None
             st.session_state.current_cycle = 0
-            st.session_state.selected_tab = "Overview"
-            st.session_state.auto_scroll = True
             st.session_state.refresh_rate = settings.UPDATE_INTERVAL
             st.session_state.show_alerts = True
+            st.session_state.max_points = 50
             
             logger.info("Session state initialized")
     
@@ -82,40 +81,32 @@ class ThermalDNAApp:
         
         with col1:
             st.markdown(f"""
-            <div style="padding: 1rem 0;">
-                <h1>{settings.APP_ICON} {settings.APP_NAME}</h1>
-                <p style="color: #666; font-size: 0.9rem;">
-                    Version {settings.APP_VERSION} | Active Vibration Control with AI
-                </p>
+            <div style="padding: 0.5rem 0;">
+                <h2>{settings.APP_ICON} {settings.APP_NAME}</h2>
+                <p style="color: #666; font-size: 0.8rem;">v{settings.APP_VERSION}</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             status = st.session_state.system_status.value
             if st.session_state.system_status == SystemStatus.CRITICAL:
-                st.error(f"## {status}")
+                st.error(f"### {status}")
             elif st.session_state.system_status == SystemStatus.WARNING:
-                st.warning(f"## {status}")
-            elif st.session_state.system_status == SystemStatus.ERROR:
-                st.error(f"## {status}")
+                st.warning(f"### {status}")
             else:
-                st.success(f"## {status}")
+                st.success(f"### {status}")
         
         with col3:
             if st.session_state.system_running and st.session_state.start_time:
                 uptime = datetime.now() - st.session_state.start_time
-                hours, remainder = divmod(uptime.seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                st.metric(
-                    "⏱️ Uptime",
-                    f"{hours:02d}:{minutes:02d}:{seconds:02d}",
-                    help="System uptime"
-                )
+                minutes = int(uptime.total_seconds() / 60)
+                seconds = int(uptime.total_seconds() % 60)
+                st.metric("⏱️ Uptime", f"{minutes}m {seconds}s")
     
     def render_sidebar(self):
         """Render sidebar controls"""
         with st.sidebar:
-            st.image("https://via.placeholder.com/300x80/1e3c72/ffffff?text=YERUSLAN+TECH", 
+            st.image("https://via.placeholder.com/250x60/1e3c72/ffffff?text=YERUSLAN", 
                     use_container_width=True)
             
             st.markdown("---")
@@ -129,9 +120,8 @@ class ThermalDNAApp:
                 if st.button("🛑 Stop", type="secondary", use_container_width=True):
                     self.emergency_stop()
             
-            st.markdown("---")
-            
             if st.session_state.system_running:
+                st.markdown("---")
                 st.subheader("📊 Live Statistics")
                 
                 stats = self.data_manager.get_statistics()
@@ -146,26 +136,8 @@ class ThermalDNAApp:
                 
                 st.markdown("---")
                 
-                # Alert panel
                 if st.session_state.show_alerts:
                     render_alert_panel()
-            
-            # System info
-            with st.expander("ℹ️ System Info", expanded=False):
-                st.markdown("""
-                **Sensors:**
-                • 4x Vibration (PCB 603C01)
-                • 4x Thermal (FLIR A500f)
-                • 1x Acoustic (NI 9234)
-                
-                **Actuators:**
-                • 4x MR Dampers (LORD RD-8040)
-                
-                **AI Engine:**
-                • Isolation Forest
-                • 200 estimators
-                • 9 features
-                """)
     
     def start_system(self):
         """Start the monitoring system"""
@@ -176,7 +148,7 @@ class ThermalDNAApp:
         st.session_state.current_cycle = 0
         
         self.data_manager.reset()
-        # ✅ ИСПРАВЛЕНО: правильное имя метода
+        # ✅ ИСПРАВЛЕНО: правильный метод add_alert (без подчеркивания)
         self.alert_system.add_alert("success", "System started successfully")
         
         logger.info("System started")
@@ -190,7 +162,7 @@ class ThermalDNAApp:
         # Set all dampers to zero
         self.data_manager.damper_forces = {d: 0 for d in self.config.MR_DAMPERS.keys()}
         
-        # ✅ ИСПРАВЛЕНО: правильное имя метода
+        # ✅ ИСПРАВЛЕНО: правильный метод add_alert (без подчеркивания)
         self.alert_system.add_alert("warning", "Emergency stop activated")
         
         logger.warning("Emergency stop activated")
@@ -201,27 +173,22 @@ class ThermalDNAApp:
                            ai_confidence: float) -> int:
         """Calculate comprehensive risk index"""
         try:
-            # Sensor-based risk (0-75)
-            vib_risk = np.mean([min(v / 6.0, 1.0) for v in vibration.values()]) * 25
-            temp_risk = np.mean([min((t - 20) / 80, 1.0) for t in temperature.values()]) * 25
-            noise_risk = min((noise - 30) / 70, 1.0) * 25
+            vib_avg = sum(vibration.values()) / len(vibration)
+            temp_avg = sum(temperature.values()) / len(temperature)
             
-            # AI-based risk (0-25)
-            if ai_prediction == -1:  # Anomaly detected
-                ai_risk = (1 - ai_confidence) * 25
+            vib_risk = min(vib_avg / 6.0, 1.0) * 30
+            temp_risk = min((temp_avg - 20) / 80, 1.0) * 30
+            noise_risk = min((noise - 30) / 70, 1.0) * 20
+            
+            if ai_prediction == -1:
+                ai_risk = 20
             else:
-                ai_risk = ai_confidence * 15
+                ai_risk = ai_confidence * 10
             
-            # Combine risks
-            total_risk = vib_risk + temp_risk + noise_risk + ai_risk
+            total = vib_risk + temp_risk + noise_risk + ai_risk
+            return int(max(0, min(100, total)))
             
-            # Add small random variation
-            total_risk += np.random.normal(0, 2)
-            
-            return int(max(0, min(100, total_risk)))
-            
-        except Exception as e:
-            logger.error(f"Risk calculation error: {e}")
+        except Exception:
             return 50
     
     def determine_damper_force(self, risk_index: int) -> int:
@@ -272,44 +239,27 @@ class ThermalDNAApp:
     def render_footer(self):
         """Render application footer"""
         st.markdown("---")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.caption(f"© 2024 Yeruslan Technologies")
-        with col2:
-            st.caption(f"Version {settings.APP_VERSION}")
-        with col3:
-            st.caption("🔒 Secure Connection")
+        st.caption(f"© 2024 Yeruslan Technologies | v{settings.APP_VERSION}")
     
     def run_monitoring_loop(self):
         """Main monitoring loop"""
         try:
-            # Initialize progress
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            # Create tabs
-            tab1, tab2, tab3 = st.tabs([
-                "📊 Live Monitoring",
-                "📈 Trends",
-                "🔧 Diagnostics"
-            ])
+            tab1, tab2 = st.tabs(["📊 Live", "📈 Trends"])
             
-            # Main loop
             for cycle in range(settings.SIMULATION_CYCLES):
                 if not st.session_state.system_running:
                     break
                 
                 st.session_state.current_cycle = cycle
                 
-                # Generate sensor data
+                # Generate data
                 vibration, temperature, noise = self.simulator.generate_data(cycle)
                 
-                if not vibration or not temperature:
+                if not vibration:
                     st.session_state.error_count += 1
-                    if st.session_state.error_count > 5:
-                        st.error("Too many errors. Stopping system.")
-                        self.emergency_stop()
-                        break
                     continue
                 
                 # AI prediction
@@ -321,10 +271,10 @@ class ThermalDNAApp:
                     vibration, temperature, noise, ai_prediction, ai_confidence
                 )
                 
-                # Update system status
+                # Update status
                 st.session_state.system_status = self.determine_system_status(risk_index)
                 
-                # Determine damper forces
+                # Damper forces
                 damper_force = self.determine_damper_force(risk_index)
                 damper_forces = {d: damper_force for d in self.config.MR_DAMPERS.keys()}
                 self.data_manager.damper_forces = damper_forces
@@ -338,18 +288,16 @@ class ThermalDNAApp:
                     {'prediction': ai_prediction, 'confidence': ai_confidence}
                 )
                 
-                # Check alerts
-                alert_data = {
-                    'vibration': vibration,
-                    'temperature': temperature,
-                    'noise': noise,
-                    'risk_index': risk_index,
-                    'ai_prediction': ai_prediction,
-                    'ai_confidence': ai_confidence,
-                    'rul_hours': rul_hours,
-                    'cycle': cycle
-                }
-                self.alert_system.check_alerts(alert_data)
+                # Check alerts (every 5 cycles)
+                if cycle % 5 == 0:
+                    alert_data = {
+                        'vibration': vibration,
+                        'temperature': temperature,
+                        'noise': noise,
+                        'risk_index': risk_index,
+                        'cycle': cycle
+                    }
+                    self.alert_system.check_alerts(alert_data)
                 
                 # Update tabs
                 with tab1:
@@ -359,30 +307,25 @@ class ThermalDNAApp:
                 with tab2:
                     self.render_trends_tab()
                 
-                with tab3:
-                    self.render_diagnostics_tab(risk_index, ai_confidence, ai_prediction)
-                
-                # Update progress
+                # Progress
                 progress = (cycle + 1) / settings.SIMULATION_CYCLES
                 progress_bar.progress(progress)
                 status_text.text(f"🔄 Cycle: {cycle+1}/{settings.SIMULATION_CYCLES}")
                 
-                # Wait
                 time.sleep(st.session_state.refresh_rate)
             
-            # Cleanup
             progress_bar.empty()
             status_text.empty()
             
             if cycle >= settings.SIMULATION_CYCLES - 1:
                 st.success("✅ Simulation completed!")
-                # ✅ ИСПРАВЛЕНО: правильное имя метода
+                # ✅ ИСПРАВЛЕНО: правильный метод add_alert
                 self.alert_system.add_alert("success", "Simulation completed")
                 
         except Exception as e:
             logger.error(f"Monitoring loop error: {e}")
             st.error(f"System error: {str(e)}")
-            # ✅ ИСПРАВЛЕНО: правильное имя метода
+            # ✅ ИСПРАВЛЕНО: правильный метод add_alert
             self.alert_system.add_alert("error", f"System error: {str(e)}")
             st.session_state.system_running = False
     
@@ -391,12 +334,11 @@ class ThermalDNAApp:
                        rul_hours: int, damper_forces: Dict):
         """Render live monitoring tab"""
         
-        # Metrics row
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("🎯 Risk Index", f"{risk_index}%")
+            st.metric("🎯 Risk", f"{risk_index}%")
         with col2:
-            st.metric("🤖 AI Confidence", f"{ai_confidence:.2f}")
+            st.metric("🤖 AI", f"{ai_confidence:.2f}")
         with col3:
             st.metric("⏳ RUL", f"{rul_hours}h")
         with col4:
@@ -405,41 +347,33 @@ class ThermalDNAApp:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Vibration
-            st.subheader("📈 Vibration Monitoring")
+            st.subheader("📈 Vibration")
             if not self.data_manager.vibration_data.empty:
-                st.line_chart(self.data_manager.vibration_data.tail(50), height=200)
-            self.ui.sensor_status_section(self.config.VIBRATION_SENSORS, vibration, "")
+                st.line_chart(self.data_manager.vibration_data.tail(20), height=150)
             
-            # Temperature
-            st.subheader("🌡️ Thermal Monitoring")
+            for sensor, value in vibration.items():
+                name = self.config.VIBRATION_SENSORS[sensor][0]
+                color = "🟢" if value < 2 else "🟡" if value < 4 else "🔴"
+                st.write(f"{color} {name}: {value:.1f} mm/s")
+            
+            st.subheader("🌡️ Temperature")
             if not self.data_manager.temperature_data.empty:
-                st.line_chart(self.data_manager.temperature_data.tail(50), height=200)
-            self.ui.sensor_status_section(self.config.THERMAL_SENSORS, temperature, "")
+                st.line_chart(self.data_manager.temperature_data.tail(20), height=150)
+            
+            for sensor, value in temperature.items():
+                name = self.config.THERMAL_SENSORS[sensor][0]
+                color = "🟢" if value < 70 else "🟡" if value < 85 else "🔴"
+                st.write(f"{color} {name}: {value:.0f}°C")
         
         with col2:
-            # Noise
-            st.subheader("🔊 Acoustic Monitoring")
+            st.subheader("🔊 Noise")
             if not self.data_manager.noise_data.empty:
-                st.line_chart(self.data_manager.noise_data.tail(50), height=200)
+                st.line_chart(self.data_manager.noise_data.tail(20), height=150)
             
-            sensor_name, limits = self.config.ACOUSTIC_SENSOR
-            level = limits.get_level(noise)
+            color = "🟢" if noise < 70 else "🟡" if noise < 85 else "🔴"
+            st.write(f"{color} Level: {noise:.1f} dB")
             
-            if level == AlertLevel.ERROR:
-                st.error(f"🔴 {sensor_name}: {noise:.1f} dB")
-            elif level == AlertLevel.WARNING:
-                st.warning(f"⚠️ {sensor_name}: {noise:.1f} dB")
-            else:
-                st.success(f"✅ {sensor_name}: {noise:.1f} dB")
-            
-            # Risk gauge
-            st.subheader("🎯 Risk Assessment")
-            gauge_fig = self.ui.create_gauge(risk_index, "Current Risk")
-            st.plotly_chart(gauge_fig, use_container_width=True, key=f"gauge_{cycle}")
-            
-            # Dampers
-            st.subheader("🔄 MR Dampers")
+            st.subheader("🔄 Dampers")
             cols = st.columns(4)
             for i, (damper_id, damper_name) in enumerate(self.config.MR_DAMPERS.items()):
                 with cols[i]:
@@ -455,69 +389,30 @@ class ThermalDNAApp:
     def render_trends_tab(self):
         """Render trends tab"""
         if self.data_manager.vibration_data.empty:
-            st.info("No data available yet")
+            st.info("No data yet")
             return
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.subheader("Vibration Trends")
-            st.line_chart(self.data_manager.vibration_data)
+            st.line_chart(self.data_manager.vibration_data.tail(50))
             
             st.subheader("Temperature Trends")
-            st.line_chart(self.data_manager.temperature_data)
+            st.line_chart(self.data_manager.temperature_data.tail(50))
         
         with col2:
             st.subheader("Noise Trend")
-            st.line_chart(self.data_manager.noise_data)
+            st.line_chart(self.data_manager.noise_data.tail(50))
             
-            st.subheader("Risk History")
             if self.data_manager.risk_history:
+                st.subheader("Risk History")
                 risk_df = pd.DataFrame({
-                    'Risk': self.data_manager.risk_history,
-                    'Warning': [50] * len(self.data_manager.risk_history),
-                    'Critical': [80] * len(self.data_manager.risk_history)
+                    'Risk': self.data_manager.risk_history[-50:],
+                    'Warning': [50] * min(50, len(self.data_manager.risk_history)),
+                    'Critical': [80] * min(50, len(self.data_manager.risk_history))
                 })
                 st.line_chart(risk_df)
-    
-    def render_diagnostics_tab(self, risk_index: int, ai_confidence: float, ai_prediction: int):
-        """Render diagnostics tab"""
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("System Health")
-            
-            health_score = max(0, 100 - risk_index)
-            st.metric("Health Score", f"{health_score}%")
-            
-            if ai_prediction == -1:
-                st.warning("⚠️ AI Status: Anomaly Detected")
-            else:
-                st.success("✅ AI Status: Normal")
-            
-            stats = self.data_manager.get_statistics()
-            st.metric("Total Readings", stats['total_readings'])
-            st.metric("Active Alerts", stats['active_alerts'])
-        
-        with col2:
-            st.subheader("Model Info")
-            
-            model_info = self.ai_model.get_model_info()
-            st.info(f"""
-            **Model:** Isolation Forest
-            **Trained:** {model_info['training_date'] or 'Never'}
-            **Samples:** {model_info['training_samples']}
-            **Features:** {len(model_info['feature_names'])}
-            """)
-            
-            # Feature importance
-            if model_info['feature_importance']:
-                st.subheader("Feature Importance")
-                imp_df = pd.DataFrame(
-                    model_info['feature_importance'].items(),
-                    columns=['Feature', 'Importance']
-                ).sort_values('Importance', ascending=False)
-                st.dataframe(imp_df, use_container_width=True)
 
 # Application entry point
 if __name__ == "__main__":
@@ -525,10 +420,4 @@ if __name__ == "__main__":
         app = ThermalDNAApp()
         app.run()
     except Exception as e:
-        logger.critical(f"Fatal error: {e}")
-        st.error(f"""
-        ### ❌ Fatal Error
-        **{str(e)}**
-        
-        Please check logs and restart.
-        """)
+        st.error(f"Error: {str(e)}")
