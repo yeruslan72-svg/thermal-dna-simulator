@@ -176,7 +176,8 @@ class ThermalDNAApp:
         st.session_state.current_cycle = 0
         
         self.data_manager.reset()
-        self.alert_system.add_alert(AlertLevel.SUCCESS, "System started successfully")
+        # ✅ ИСПРАВЛЕНО: правильное имя метода
+        self.alert_system.add_alert("success", "System started successfully")
         
         logger.info("System started")
         st.rerun()
@@ -189,7 +190,8 @@ class ThermalDNAApp:
         # Set all dampers to zero
         self.data_manager.damper_forces = {d: 0 for d in self.config.MR_DAMPERS.keys()}
         
-        self.alert_system.add_alert(AlertLevel.WARNING, "Emergency stop activated")
+        # ✅ ИСПРАВЛЕНО: правильное имя метода
+        self.alert_system.add_alert("warning", "Emergency stop activated")
         
         logger.warning("Emergency stop activated")
         st.rerun()
@@ -232,6 +234,17 @@ class ThermalDNAApp:
             return self.config.DAMPER_FORCES['normal']
         else:
             return self.config.DAMPER_FORCES['standby']
+    
+    def determine_system_status(self, risk_index: int) -> SystemStatus:
+        """Determine system status based on risk index"""
+        if risk_index > 80:
+            return SystemStatus.CRITICAL
+        elif risk_index > 50:
+            return SystemStatus.WARNING
+        elif risk_index > 20:
+            return SystemStatus.NORMAL
+        else:
+            return SystemStatus.STANDBY
     
     def render_idle_state(self):
         """Render idle state"""
@@ -309,14 +322,7 @@ class ThermalDNAApp:
                 )
                 
                 # Update system status
-                if risk_index > 80:
-                    st.session_state.system_status = SystemStatus.CRITICAL
-                elif risk_index > 50:
-                    st.session_state.system_status = SystemStatus.WARNING
-                elif risk_index > 20:
-                    st.session_state.system_status = SystemStatus.NORMAL
-                else:
-                    st.session_state.system_status = SystemStatus.STANDBY
+                st.session_state.system_status = self.determine_system_status(risk_index)
                 
                 # Determine damper forces
                 damper_force = self.determine_damper_force(risk_index)
@@ -370,12 +376,14 @@ class ThermalDNAApp:
             
             if cycle >= settings.SIMULATION_CYCLES - 1:
                 st.success("✅ Simulation completed!")
-                self.alert_system.add_alert(AlertLevel.SUCCESS, "Simulation completed")
+                # ✅ ИСПРАВЛЕНО: правильное имя метода
+                self.alert_system.add_alert("success", "Simulation completed")
                 
         except Exception as e:
             logger.error(f"Monitoring loop error: {e}")
             st.error(f"System error: {str(e)}")
-            self.alert_system.add_alert(AlertLevel.ERROR, f"System error: {str(e)}")
+            # ✅ ИСПРАВЛЕНО: правильное имя метода
+            self.alert_system.add_alert("error", f"System error: {str(e)}")
             st.session_state.system_running = False
     
     def render_live_tab(self, cycle: int, vibration: Dict, temperature: Dict,
@@ -428,7 +436,7 @@ class ThermalDNAApp:
             # Risk gauge
             st.subheader("🎯 Risk Assessment")
             gauge_fig = self.ui.create_gauge(risk_index, "Current Risk")
-            st.plotly_chart(gauge_fig, use_container_width=True, key="gauge_live")
+            st.plotly_chart(gauge_fig, use_container_width=True, key=f"gauge_{cycle}")
             
             # Dampers
             st.subheader("🔄 MR Dampers")
