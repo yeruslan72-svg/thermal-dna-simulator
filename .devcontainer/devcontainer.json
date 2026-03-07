@@ -1,0 +1,158 @@
+{
+    "name": "🏭 AVCS DNA Industrial Monitor",
+    "image": "mcr.microsoft.com/devcontainers/python:3.9-bullseye",
+    
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.9",
+            "installTools": true
+        },
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "latest",
+            "ppa": false
+        },
+        "ghcr.io/devcontainers/features/github-cli:1": {
+            "version": "latest"
+        },
+        "ghcr.io/devcontainers/features/common-utils:1": {
+            "username": "vscode",
+            "uid": 1000,
+            "gid": 1000,
+            "installZsh": true,
+            "installOhMyZsh": true,
+            "upgradePackages": true
+        }
+    },
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.black-formatter",
+                "ms-python.flake8",
+                "ms-python.isort",
+                "ms-toolsai.jupyter",
+                "ms-toolsai.jupyter-renderers",
+                "ms-vscode-remote.remote-containers",
+                "github.copilot",
+                "github.copilot-labs",
+                "eamodio.gitlens",
+                "streetsidesoftware.code-spell-checker",
+                "streetsidesoftware.code-spell-checker-russian",
+                "njpwerner.autodocstring",
+                "kevinrose.vsc-python-indent",
+                "bierner.markdown-preview-github-styles",
+                "yzhang.markdown-all-in-one",
+                "shd101wyy.markdown-preview-enhanced",
+                "grapecity.gc-excelviewer",
+                "mechatroner.rainbow-csv",
+                "tomoki1207.pdf",
+                "redhat.vscode-yaml",
+                "ms-azuretools.vscode-docker",
+                "github.vscode-github-actions"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "python.linting.enabled": true,
+                "python.linting.flake8Enabled": true,
+                "python.linting.flake8Args": [
+                    "--max-line-length=100",
+                    "--ignore=E402,F401,W503"
+                ],
+                "python.formatting.provider": "black",
+                "python.formatting.blackArgs": [
+                    "--line-length",
+                    "100"
+                ],
+                "[python]": {
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": true
+                    }
+                },
+                "isort.args": [
+                    "--profile",
+                    "black",
+                    "--line-length",
+                    "100"
+                ],
+                "files.autoSave": "afterDelay",
+                "files.autoSaveDelay": 1000,
+                "editor.rulers": [
+                    80,
+                    100
+                ],
+                "workbench.colorTheme": "Default Dark Modern",
+                "workbench.startupEditor": "readme",
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                "terminal.integrated.fontSize": 14,
+                "terminal.integrated.fontFamily": "MesloLGS NF",
+                "cSpell.language": "en,ru",
+                "autoDocstring.docstringFormat": "google",
+                "autoDocstring.startOnNewLine": true,
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true,
+                    "**/*.pyc": true
+                },
+                "search.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true
+                },
+                "git.enableSmartCommit": true,
+                "git.confirmSync": false,
+                "github.copilot.enable": {
+                    "*": true,
+                    "python": true
+                }
+            }
+        }
+    },
+    
+    "postCreateCommand": ".devcontainer/post-create.sh",
+    
+    "postStartCommand": "echo '🚀 AVCS DNA Industrial Monitor v6.0 is ready!' && python --version && pip list | grep -E 'streamlit|numpy|pandas|scikit-learn|plotly'",
+    
+    "postAttachCommand": "echo '✅ Development environment attached'",
+    
+    "forwardPorts": [8501],
+    
+    "portsAttributes": {
+        "8501": {
+            "label": "🚀 Streamlit App",
+            "onAutoForward": "openBrowserOnce",
+            "protocol": "http"
+        }
+    },
+    
+    "remoteUser": "vscode",
+    
+    "containerUser": "vscode",
+    
+    "updateRemoteUserUID": true,
+    
+    "mounts": [
+        "source=${localWorkspaceFolder}/data,target=/workspace/data,type=bind",
+        "source=${localWorkspaceFolder}/logs,target=/workspace/logs,type=bind",
+        "source=${localWorkspaceFolder}/models,target=/workspace/models,type=bind"
+    ],
+    
+    "workspaceFolder": "/workspace",
+    
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    
+    "remoteEnv": {
+        "PYTHONPATH": "/workspace:${PYTHONPATH}",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "STREAMLIT_SERVER_PORT": "8501",
+        "STREAMLIT_SERVER_ADDRESS": "0.0.0.0",
+        "STREAMLIT_BROWSER_GATHER_USAGE_STATS": "false"
+    },
+    
+    "shutdownAction": "stopContainer",
+    
+    "initializeCommand": "echo '🚀 Initializing AVCS DNA development container...'"
+}
